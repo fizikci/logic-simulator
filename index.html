@@ -64,8 +64,13 @@
                         ng-attr-fill="{{selected == g ? 'yellow' : 'white'}}"
                         ng-mousedown="select(g, $event)">{{g.name ? g.name : g.type}}</text>
 
+                    <!--LEDS ON COMPONENT-->
+                    <circle ng-repeat="sg in g.gates" ng-if="sg.type=='LED'"
+                        ng-attr-cx="{{g.pos.left*CW+sg.pos.left*g.W}}" ng-attr-cy="{{g.pos.top*CH + sg.pos.top*g.H}}" ng-attr-r="{{PR}}" 
+                        ng-attr-fill="{{sg.inputs[0].value?'lime':'green'}}" stroke-width="4" stroke="none"/>
+
                     <!--INPUT PINS-->
-                    <circle ng-repeat="p in g.inputs" 
+                    <circle ng-repeat="p in g.inputs" title="pin"
                         ng-attr-cx="{{g.pos.left*CW + p.pos.left*g.W}}" ng-attr-cy="{{g.pos.top*CH + p.pos.top*g.H}}" ng-attr-r="{{PR}}" 
                         fill="gray" stroke-width="4" ng-attr-stroke="{{selected == p ? 'yellow' : 'none'}}"
                         ng-mousedown="select(p, $event)" />

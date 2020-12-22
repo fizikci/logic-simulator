@@ -6,6 +6,7 @@ function setGates(){
             {
                 "id": "c1",
                 "type": "CLOCK",
+                "name": "CLOCK",
                 W:100,H:30,
                 "inputs": [],
                 "outputs": [
@@ -25,6 +26,7 @@ function setGates(){
             {
                 "id": "l1",
                 "type": "LED",
+                "name": "LED",
                 W:25,H:25,
                 "inputs": [
                     {
@@ -44,6 +46,7 @@ function setGates(){
             {
                 "id": "g1",
                 "type": "NOT",
+                "name": "NOT",
                 W:70,H:30,
                 "inputs": [
                     {
@@ -72,6 +75,7 @@ function setGates(){
             {
                 "id": "g3",
                 "type": "AND",
+                "name": "AND",
                 W:70,H:70,
                 "inputs": [
                     {

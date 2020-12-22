@@ -104,11 +104,11 @@ app.controller('MainController', function ($scope, $interval) {
     function find(ic, ref){
         if(!ref) return null;
 
-        var inp = ic.inputs.find(i=>i.id==ref);
+        let inp = ic.inputs.find(i=>i.id==ref);
         if(inp) return inp;
 
         try{
-            var gate = ic.gates.find(g=>g.id == ref.split('.')[0]);
+            let gate = ic.gates.find(g=>g.id == ref.split('.')[0]);
             return gate.outputs.find(o=>o.id==ref.split('.')[1]);
         }catch{
             return null;
@@ -153,17 +153,35 @@ app.controller('MainController', function ($scope, $interval) {
             return;
         }
 
-        var gatePrototype = _.gatePrototypes.find(gp=>gp[0]==type)[1];
+        let gatePrototype = _.gatePrototypes.find(gp=>gp[0]==type)[1];
         let newGate = JSON.parse(JSON.stringify(gatePrototype));
         newGate.id = 'g'+_.ic.gates.length;
         newGate.pos = {left:Math.random()*.8, top:Math.random()*.8};
+        addSubGates(newGate);
         _.ic.gates.push(newGate);
     }
 
+    function addSubGates(g){
+        if(!g.gates) return;
+
+        for(let sg of g.gates){
+            let gatePrototype = _.gatePrototypes.find(gp=>gp[0]==sg.name)[1];
+            let newGate = JSON.parse(JSON.stringify(gatePrototype));
+            sg.gates = newGate.gates;
+            sg.inputs = newGate.inputs;
+            sg.outputs = newGate.outputs;
+            sg.inputs.forEach(x=>x.data = sg.inputsData.find(i=>i.id==x.id).data);
+            sg.outputs.forEach(x=>x.data = sg.outputsData.find(i=>i.id==x.id).data);
+            sg.inputsData = undefined;
+            sg.outputsData = undefined;
+            addSubGates(sg);
+        }
+    }
+
     _.save = ()=>{
-        var name = prompt('Enter a name for the IC');
+        let name = prompt('Enter a name for the IC');
         _.ic.name = name.toUpperCase();
-        let pins = _.ic.inputs.concat(_.ic.outputs).map(p=>p.pos);
+        let pins = _.ic.inputs.concat(_.ic.outputs).concat(_.ic.gates.filter(g=>g.type=='LED')).map(p=>p.pos);
         let horizontalPinCount = 0; let verticalPinCount = 0;
         for(let i=0; i<1; i+=.05){
             horizontalPinCount += pins.find(p=>p.left>=i && p.left<i+.1) ? 1 : 0;
@@ -171,6 +189,16 @@ app.controller('MainController', function ($scope, $interval) {
         }
         _.ic.W = Math.max(70, horizontalPinCount*(_.PR+3));
         _.ic.H = Math.max(30, verticalPinCount*(_.PR+3));
+
+        if(_.ic.gates && _.ic.gates.length)
+            for(let i=0; i<_.ic.gates.length; i++){
+                _.ic.gates[i].gates = undefined;
+                _.ic.gates[i].inputsData = _.ic.gates[i].inputs.map(x=>({id:x.id, data:x.data}));
+                _.ic.gates[i].outputsData = _.ic.gates[i].outputs.map(x=>({id:x.id, data:x.data}));
+                _.ic.gates[i].inputs = undefined;
+                _.ic.gates[i].outputs = undefined;
+            }
+
         _.gatePrototypes.push([_.ic.name, JSON.parse(JSON.stringify(_.ic, (k,v)=>(k==="$$hashKey"||k==="connections")?undefined:v))]);
 
         _.newIC();
