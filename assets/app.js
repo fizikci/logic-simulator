@@ -6,40 +6,69 @@ app.controller('MainController', function ($scope, $interval) {
     _ = $scope;
     _.CW = 1000;
     _.CH = 700;
-    _.GW = _.CW/10;
-    _.GH = _.CH/10;
     _.PR = 8;
     _.viewStack = [];
+    _.selecteds = [];
 
     _.select = (obj, ev) => {
-        let old = _.selected;
-        _.selected = obj;
+        if(ev.altKey){
+            if(_.selecteds.length && obj && _.selecteds[0]!=obj && _.isPin(_.selecteds[0]) && _.isPin(obj)){
+                let g = _.ic.gates.find(g=>g.inputs.indexOf(_.selecteds[0])>-1 || g.outputs.indexOf(_.selecteds[0])>-1);
+                obj.data = g ? g.id+'.'+_.selecteds[0].id : _.selecteds[0].id;
 
-        if(ev.ctrlKey && old && obj && old!=obj && _.isPin(old) && _.isPin(obj)){
-            var g = _.ic.gates.find(g=>g.inputs.indexOf(old)>-1 || g.outputs.indexOf(old)>-1);
-            obj.data = g ? g.id+'.'+old.id : old.id;
-            _.refreshView();
+                if(_.selecteds.length>1)
+                    _.selecteds.splice(_.selecteds[0],1)[0];
+
+                _.refreshView();
+            }
+            return;
         }
+        if(ev.ctrlKey){
+            _.selecteds.push(obj);
+            return;
+        }
+
+        _.selecteds = [obj];
     }
 
+    _.isSelected = obj => _.selecteds.indexOf(obj)>-1;
+
     _.dragStart = ev => {
-        let obj = _.selected;
-        if(!obj) return;
+        if(ev.target.tagName=='svg' && !ev.altKey && !ev.ctrlKey) {
+            _.selecteds = [];
+            _.selectTool = {init:{x:ev.offsetX, y:ev.offsetY}};
+        }
+
+        if(!_.selecteds.length) return;
         _.dragging = true;
-        _.dragDiff = [ev.offsetX - obj.pos.left*_.CW, ev.offsetY - obj.pos.top*_.CH];
+        _.dragDiff = _.selecteds.map(o=>[ev.offsetX - o.pos.left*_.CW, ev.offsetY - o.pos.top*_.CH]);
     }
 
     _.drag = ev =>{
-        let obj = _.selected;
-        if(!obj || !_.dragging) return;
+        if(_.selectTool){
+            _.selectTool.start = {x:Math.min(ev.offsetX, _.selectTool.init.x), y:Math.min(ev.offsetY, _.selectTool.init.y)};
+            _.selectTool.end = {x:Math.max(ev.offsetX, _.selectTool.init.x), y:Math.max(ev.offsetY, _.selectTool.init.y)};
+            return;
+        }
+
+        if(!_.selecteds.length || !_.dragging) return;
         
-        obj.pos = {
-            left: (ev.offsetX - _.dragDiff[0])/_.CW,
-            top: (ev.offsetY - _.dragDiff[1])/_.CH
-        };
+        _.selecteds.forEach((o,i)=>o.pos = {
+            left: (ev.offsetX - _.dragDiff[i][0])/_.CW,
+            top: (ev.offsetY - _.dragDiff[i][1])/_.CH
+        });
     }
 
     _.dragEnd = ev => {
+        if(_.selectTool && _.selectTool.start && _.selectTool.end && _.selectTool.end.x > _.selectTool.start.x+10 && _.selectTool.end.y > _.selectTool.start.y+10){
+            _.selecteds = [..._.ic.inputs,..._.ic.outputs,..._.ic.gates].filter(o => 
+                o.pos.left*_.CW >= _.selectTool.start.x && 
+                o.pos.left*_.CW < _.selectTool.end.x && 
+                o.pos.top*_.CH >= _.selectTool.start.y && 
+                o.pos.top*_.CH < _.selectTool.end.y);
+        }
+
+        _.selectTool = null;
         _.dragging = false;
     }
 
@@ -85,10 +114,8 @@ app.controller('MainController', function ($scope, $interval) {
                 if(ref) i.value = ref.value;
             }
                 
-            if(g.type === 'NOT')
-                g.outputs[0].value = g.inputs[0].value ? 0 : 1;
-            if(g.type === 'AND')
-                g.outputs[0].value = (g.inputs[0].value===0 || g.inputs[1].value===0) ? 0 : 1;
+            if(g.type === 'NAND')
+                g.outputs[0].value = (g.inputs[0].value===1 && g.inputs[1].value===1) ? 0 : 1;
             if(g.type === 'IC')
                 _.calc(g);
         }
@@ -133,32 +160,64 @@ app.controller('MainController', function ($scope, $interval) {
 
     _.newIC();
 
+    _.lastSelecteds = [];
+
     _.add = type =>{
+        if(_.lastSelecteds.some((s,i) =>_.selecteds[i]!=s))
+            _.selecteds = [];
+
+        let added = null;
+
         if(type=='INPUT'){
-            _.ic.inputs.push({
+            added = {
                 id:'input'+_.ic.inputs.length,
                 name:'INPUT'+_.ic.inputs.length,
                 pos:{left:0, top:.3}
-            });
-            _.ic.inputs.forEach((e,i)=>e.pos.top = (i+1)/(_.ic.inputs.length+1));
-            return;
+            };
+            _.ic.inputs.push(added);
         }
-        if(type=='OUTPUT'){
-            _.ic.outputs.push({
+        else if(type=='OUTPUT'){
+            added = {
                 id:'output'+_.ic.outputs.length,
                 name:'OUTPUT'+_.ic.outputs.length,
                 pos:{left:1, top:.3}
-            });
-            _.ic.outputs.forEach((e,i)=>e.pos.top = (i+1)/(_.ic.outputs.length+1));
-            return;
+            };
+            _.ic.outputs.push(added);
+        }
+        else {
+            let gatePrototype = _.gatePrototypes.find(gp=>gp[0]==type)[1];
+            added = JSON.parse(JSON.stringify(gatePrototype));
+            added.id = 'g'+_.ic.gates.length;
+            addSubGates(added);
+            _.ic.gates.push(added);
         }
 
-        let gatePrototype = _.gatePrototypes.find(gp=>gp[0]==type)[1];
-        let newGate = JSON.parse(JSON.stringify(gatePrototype));
-        newGate.id = 'g'+_.ic.gates.length;
-        newGate.pos = {left:Math.random()*.8, top:Math.random()*.8};
-        addSubGates(newGate);
-        _.ic.gates.push(newGate);
+        _.selecteds.push(added);
+        
+        _.selecteds.forEach((e,i) => e.pos = {
+            left: (i+1)/(_.selecteds.length+1), 
+            top: (i+1)/(_.selecteds.length+1)
+        });
+
+        _.lastSelecteds = _.selecteds.map(s=>s);
+        
+    }
+
+    _.align = (dir) => {
+        if(dir=='left') _.selecteds.forEach(e=>e.pos.left = Math.min(..._.selecteds.map(s=>s.pos.left)));
+        if(dir=='right') _.selecteds.forEach(e=>e.pos.left = Math.max(..._.selecteds.map(s=>s.pos.left)));
+        if(dir=='top') _.selecteds.forEach(e=>e.pos.top = Math.min(..._.selecteds.map(s=>s.pos.top)));
+        if(dir=='bottom') _.selecteds.forEach(e=>e.pos.top = Math.max(..._.selecteds.map(s=>s.pos.top)));
+    }
+
+    _.spread = ()=>{
+        const center = _.selecteds.reduce((sum, s) => ({left:sum.left+s.pos.left/_.selecteds.length, top:sum.top+s.pos.top/_.selecteds.length}), {left:0, top:0} );
+        _.selecteds.forEach(s => {s.pos.left -= (center.left-s.pos.left)*.1; s.pos.top -= (center.top-s.pos.top)*.1 });
+    }
+
+    _.gather = ()=>{
+        const center = _.selecteds.reduce((sum, s) => ({left:sum.left+s.pos.left/_.selecteds.length, top:sum.top+s.pos.top/_.selecteds.length}), {left:0, top:0} );
+        _.selecteds.forEach(s => {s.pos.left += (center.left-s.pos.left)*.1; s.pos.top += (center.top-s.pos.top)*.1 });
     }
 
     function addSubGates(g){
@@ -205,22 +264,23 @@ app.controller('MainController', function ($scope, $interval) {
     }
 
     _.delete = ()=>{
-        if(!_.selected) return;
-        if(_.isGate(_.selected))
-            _.ic.gates.splice(_.ic.gates.indexOf(_.selected),1);
-        else if(_.isInput(_.selected))
-            _.ic.inputs.splice(_.ic.inputs.indexOf(_.selected),1);
-        else if(_.isOutput(_.selected))
-            _.ic.outputs.splice(_.ic.outputs.indexOf(_.selected),1);
+        if(!_.selecteds.length) return;
 
+        _.selecteds.filter(s=>_.isGate(s)).forEach(s=>_.ic.gates.splice(_.ic.gates.indexOf(s),1));
+        _.selecteds.filter(s=>_.isInput(s)).forEach(s=>_.ic.inputs.splice(_.ic.inputs.indexOf(s),1));
+        _.selecteds.filter(s=>_.isOutput(s)).forEach(s=>_.ic.outputs.splice(_.ic.outputs.indexOf(s),1));
+
+        _.selecteds = [];
         _.refreshView();
     }
 
     _.display = ()=>{
-        if(!_.selected) return;
-        if(_.selected.type === "IC"){
+        if(_.selecteds.length != 1) return;
+
+        if(_.selecteds[0].type === "IC"){
             _.viewStack.push(_.ic);
-            _.ic = _.selected;
+            _.ic = _.selecteds[0];
+            _.selecteds = [];
             _.refreshView();
         }
     }
@@ -228,7 +288,7 @@ app.controller('MainController', function ($scope, $interval) {
     _.back = ()=>{
         _.ic = _.viewStack.pop();
         _.refreshView();
-        _.selected = null;
+        _.selecteds = [];
     }
 
     _.isPin = obj => _.isInput(obj) || _.isOutput(obj);

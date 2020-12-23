@@ -19,9 +19,15 @@
             <button ng-disabled="viewStack.length" ng-click="save()">SAVE</button>
             <hr>
             SELECTED
-            <button ng-disabled="!selected" ng-click="delete()">DELETE</button>
-            <button ng-disabled="!selected || selected.type != 'IC'" ng-click="display()">SCOPE</button>
+            <button ng-disabled="!selecteds.length" ng-click="delete()">DELETE</button>
+            <button ng-disabled="selecteds.length!=1 || selecteds[0].type != 'IC'" ng-click="display()">SCOPE</button>
             <button ng-disabled="viewStack.length==0" ng-click="back()">GO BACK</button>
+            <button ng-disabled="!selecteds.length" ng-click="align('top')">ALIGN TOP</button>
+            <button ng-disabled="!selecteds.length" ng-click="align('right')">ALIGN RIGHT</button>
+            <button ng-disabled="!selecteds.length" ng-click="align('bottom')">ALIGN BOTTOM</button>
+            <button ng-disabled="!selecteds.length" ng-click="align('left')">ALIGN LEFT</button>
+            <button ng-disabled="!selecteds.length" ng-click="spread()">SPREAD</button>
+            <button ng-disabled="!selecteds.length" ng-click="gather()">GATHER</button>            
             <hr>
             ADD
             <button ng-click="add('INPUT')">INPUT</button>
@@ -41,7 +47,7 @@
 
                     <circle 
                         ng-attr-cx="{{p.pos.left*CW+PR}}" ng-attr-cy="{{p.pos.top*CH}}" ng-attr-r="{{PR}}"
-                        ng-attr-fill="{{p.value===1?'red':'gray'}}" stroke-width="4" ng-attr-stroke="{{selected == p ? 'yellow' : 'none'}}" 
+                        ng-attr-fill="{{p.value===1?'red':'gray'}}" stroke-width="4" ng-attr-stroke="{{isSelected(p) ? 'yellow' : 'none'}}" 
                         ng-mousedown="select(p, $event)" ng-click="p.value = p.value ? 0 : 1" />
 
                 </g>
@@ -51,17 +57,17 @@
 
                     <rect ng-if="g.type!='LED'" 
                         ng-attr-x="{{g.pos.left*CW}}" ng-attr-y="{{g.pos.top*CH}}" ng-attr-width="{{g.W}}" ng-attr-height="{{g.H}}" 
-                        fill="black" stroke-width="4" ng-attr-stroke="{{selected == g ? 'yellow' : 'none'}}" 
+                        fill="black" stroke-width="4" ng-attr-stroke="{{isSelected(g) ? 'yellow' : 'none'}}" 
                         ng-mousedown="select(g, $event)" />
 
                     <circle ng-if="g.type=='LED'" 
                         ng-attr-cx="{{g.pos.left*CW+g.W}}" ng-attr-cy="{{g.pos.top*CH+g.W}}" ng-attr-r="{{g.W}}" ng-attr-fill="{{g.inputs[0].value?'lime':'green'}}" 
-                        stroke-width="4" ng-attr-stroke="{{selected == g ? 'yellow' : 'none'}}" 
+                        stroke-width="4" ng-attr-stroke="{{isSelected(g) ? 'yellow' : 'none'}}" 
                         ng-mousedown="select(g, $event)" />
 
                     <text ng-if="g.type!='LED'" 
                         ng-attr-x="{{g.pos.left*CW + 20}}" ng-attr-y="{{g.pos.top*CH + 20}}"
-                        ng-attr-fill="{{selected == g ? 'yellow' : 'white'}}"
+                        ng-attr-fill="{{isSelected(g) ? 'yellow' : 'white'}}"
                         ng-mousedown="select(g, $event)">{{g.name ? g.name : g.type}}</text>
 
                     <!--LEDS ON COMPONENT-->
@@ -72,7 +78,7 @@
                     <!--INPUT PINS-->
                     <circle ng-repeat="p in g.inputs" title="pin"
                         ng-attr-cx="{{g.pos.left*CW + p.pos.left*g.W}}" ng-attr-cy="{{g.pos.top*CH + p.pos.top*g.H}}" ng-attr-r="{{PR}}" 
-                        fill="gray" stroke-width="4" ng-attr-stroke="{{selected == p ? 'yellow' : 'none'}}"
+                        fill="gray" stroke-width="4" ng-attr-stroke="{{isSelected(p) ? 'yellow' : 'none'}}"
                         ng-mousedown="select(p, $event)" />
 
                     <!--OUTPUT PINS-->
@@ -82,7 +88,7 @@
                             ng-attr-stroke="{{p.value===1?'red':'gray'}}" stroke-width="4" />
                         <circle 
                             ng-attr-cx="{{g.pos.left*CW + p.pos.left*g.W}}" ng-attr-cy="{{g.pos.top*CH + p.pos.top*g.H}}" ng-attr-r="{{PR}}"
-                            ng-attr-fill="{{p.value===1?'red':'gray'}}" stroke-width="4" ng-attr-stroke="{{selected == p ? 'yellow' : 'none'}}" 
+                            ng-attr-fill="{{p.value===1?'red':'gray'}}" stroke-width="4" ng-attr-stroke="{{isSelected(p) ? 'yellow' : 'none'}}" 
                             ng-mousedown="select(p, $event)" />
                     </g>
                 </g>
@@ -95,9 +101,14 @@
 
                     <circle 
                         ng-attr-cx="{{p.pos.left*CW-PR}}" ng-attr-cy="{{p.pos.top*CH}}" ng-attr-r="{{PR}}"
-                        ng-attr-fill="{{p.value===1?'red':'gray'}}" stroke-width="4" ng-attr-stroke="{{selected == p ? 'red' : 'none'}}" 
+                        ng-attr-fill="{{p.value===1?'red':'gray'}}" stroke-width="4" ng-attr-stroke="{{isSelected(p) ? 'red' : 'none'}}" 
                         ng-mousedown="select(p, $event)" />
                 </g>
+
+                <!--SELECT TOOL-->
+                <rect ng-if="selectTool" 
+                    ng-attr-x="{{selectTool.start.x}}" ng-attr-y="{{selectTool.start.y}}" ng-attr-width="{{selectTool.end.x-selectTool.start.x}}" ng-attr-height="{{selectTool.end.y-selectTool.start.y}}" 
+                    fill="none" stroke-width="1" stroke="gray" stroke-dasharray="5,5"/>
 
             </svg>
         </div>
