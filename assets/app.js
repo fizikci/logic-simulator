@@ -66,6 +66,15 @@ app.controller('MainController', function ($scope, $interval) {
                 o.pos.left*_.CW < _.selectTool.end.x && 
                 o.pos.top*_.CH >= _.selectTool.start.y && 
                 o.pos.top*_.CH < _.selectTool.end.y);
+
+            if(_.selecteds.length==0){
+                const allInpOut = _.ic.gates.reduce((s,g)=>[...s, ...g.inputs.map(x=>[x, g.pos.left*_.CW + x.pos.left*g.W, g.pos.top*_.CH + x.pos.top*g.H]), ...g.outputs.map(x=>[x, g.pos.left*_.CW + x.pos.left*g.W, g.pos.top*_.CH + x.pos.top*g.H])], []);
+                _.selecteds = allInpOut.filter(o => 
+                    o[1] >= _.selectTool.start.x && 
+                    o[1] < _.selectTool.end.x && 
+                    o[2] >= _.selectTool.start.y && 
+                    o[2] < _.selectTool.end.y).map(o=>o[0]);
+            }
         }
 
         _.selectTool = null;
@@ -204,10 +213,18 @@ app.controller('MainController', function ($scope, $interval) {
     }
 
     _.align = (dir) => {
-        if(dir=='left') _.selecteds.forEach(e=>e.pos.left = Math.min(..._.selecteds.map(s=>s.pos.left)));
-        if(dir=='right') _.selecteds.forEach(e=>e.pos.left = Math.max(..._.selecteds.map(s=>s.pos.left)));
-        if(dir=='top') _.selecteds.forEach(e=>e.pos.top = Math.min(..._.selecteds.map(s=>s.pos.top)));
-        if(dir=='bottom') _.selecteds.forEach(e=>e.pos.top = Math.max(..._.selecteds.map(s=>s.pos.top)));
+        const alignTo = (dir2, f) => {
+            const min = f(..._.selecteds.map(s=>s.pos[dir2]));
+            if(_.selecteds.filter(s=>s.pos[dir2]!=_.selecteds[0].pos[dir2]).length==0)
+                _.selecteds.forEach(e=>e.pos[dir2] = f == Math.min ? 0.02 : 0.98);
+            else
+                _.selecteds.forEach(e=>e.pos[dir2] = min);
+        }
+        
+        if(dir=='left') alignTo('left', Math.min);
+        if(dir=='right') alignTo('left', Math.max);
+        if(dir=='top') alignTo('top', Math.min);
+        if(dir=='bottom') alignTo('top', Math.max);
     }
 
     _.spread = ()=>{
