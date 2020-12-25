@@ -11,9 +11,10 @@ app.controller('MainController', function ($scope, $interval) {
     _.selecteds = [];
 
     _.select = (obj, ev) => {
+        // connect pins
         if(ev.altKey){
             if(_.selecteds.length && obj && _.selecteds[0]!=obj && _.isPin(_.selecteds[0]) && _.isPin(obj)){
-                let g = _.ic.gates.find(g=>g.inputs.indexOf(_.selecteds[0])>-1 || g.outputs.indexOf(_.selecteds[0])>-1);
+                let g = _.ic.gates.find(g=>g.pins.indexOf(_.selecteds[0])>-1);
                 obj.data = g ? g.id+'.'+_.selecteds[0].id : _.selecteds[0].id;
 
                 if(_.selecteds.length>1)
@@ -23,11 +24,14 @@ app.controller('MainController', function ($scope, $interval) {
             }
             return;
         }
+
+        // select multiple
         if(ev.ctrlKey){
             _.selecteds.push(obj);
             return;
         }
 
+        // select one
         _.selecteds = [obj];
     }
 
@@ -54,21 +58,21 @@ app.controller('MainController', function ($scope, $interval) {
         if(!_.selecteds.length || !_.dragging) return;
         
         _.selecteds.forEach((o,i)=>o.pos = {
-            left: (ev.offsetX - _.dragDiff[i][0])/_.CW,
-            top: (ev.offsetY - _.dragDiff[i][1])/_.CH
+            left: Math.round((ev.offsetX - _.dragDiff[i][0])/_.CW * 100) / 100,
+            top: Math.round((ev.offsetY - _.dragDiff[i][1])/_.CH * 100) / 100
         });
     }
 
     _.dragEnd = ev => {
         if(_.selectTool && _.selectTool.start && _.selectTool.end && _.selectTool.end.x > _.selectTool.start.x+10 && _.selectTool.end.y > _.selectTool.start.y+10){
-            _.selecteds = [..._.ic.inputs,..._.ic.outputs,..._.ic.gates].filter(o => 
+            _.selecteds = [..._.ic.pins, ..._.ic.gates].filter(o => 
                 o.pos.left*_.CW >= _.selectTool.start.x && 
                 o.pos.left*_.CW < _.selectTool.end.x && 
                 o.pos.top*_.CH >= _.selectTool.start.y && 
                 o.pos.top*_.CH < _.selectTool.end.y);
 
             if(_.selecteds.length==0){
-                const allInpOut = _.ic.gates.reduce((s,g)=>[...s, ...g.inputs.map(x=>[x, g.pos.left*_.CW + x.pos.left*g.W, g.pos.top*_.CH + x.pos.top*g.H]), ...g.outputs.map(x=>[x, g.pos.left*_.CW + x.pos.left*g.W, g.pos.top*_.CH + x.pos.top*g.H])], []);
+                const allInpOut = _.ic.gates.reduce((s,g)=>[...s, ...g.pins.map(x=>[x, g.pos.left*_.CW + x.pos.left*g.W, g.pos.top*_.CH + x.pos.top*g.H])], []);
                 _.selecteds = allInpOut.filter(o => 
                     o[1] >= _.selectTool.start.x && 
                     o[1] < _.selectTool.end.x && 
@@ -81,32 +85,29 @@ app.controller('MainController', function ($scope, $interval) {
         _.dragging = false;
     }
 
-    _.refreshView = () => {
-        
-        for(let i of _.ic.inputs){
-            i.connections = [];
-            for(let g of _.ic.gates)
-                for(let gi of g.inputs)
-                    if(gi.data == i.id)
-                        i.connections.push({g:g, p:gi});
-        }
+    _.connections = [];
 
-        for(let g of _.ic.gates)
-            for(let go of g.outputs){
-                go.connections = [];
-                for(let g2 of _.ic.gates)
-                    for(let g2i of g2.inputs)
-                        if(g2i.data == g.id+"."+go.id)
-                            go.connections.push({g:g2, p:g2i});
-            }
-            
-        for(let o of _.ic.outputs){
-            o.connections = [];
-            for(let g of _.ic.gates)
-                for(let go of g.outputs)
-                    if(o.data == g.id+'.'+go.id)
-                        o.connections.push({g:g, p:go});
+    _.refreshView = () => {
+
+        _.connections = [];
+
+        // from ic.pins
+        for(let pin of _.ic.pins){
+            var ref = find(_.ic, pin.data);
+            if(ref.p) _.connections.push({
+                                            g1:ref.g, p1:ref.p,
+                                            g2:null, p2:pin});
         }
+        
+        // gates.pins
+        for(let gate of _.ic.gates)
+            for(let pin of gate.pins){
+                var ref = find(_.ic, pin.data);
+                if(ref.p) _.connections.push({
+                                            g1:ref.g, p1:ref.p,
+                                            g2:gate, p2:pin});
+            }
+
     }
 
     _.calculating = false;
@@ -114,57 +115,59 @@ app.controller('MainController', function ($scope, $interval) {
     _.calc = ic => {
         _.calculating = true;
 
-        for(let i of ic.inputs)
+        for(let i of ic.pins)
             if(i.value === undefined) i.value = 0;
 
         for(let g of ic.gates){
-            for(let i of g.inputs){
-                var ref = find(ic, i.data);
-                if(ref) i.value = ref.value;
-            }
+            for(let p of g.pins)
+                if(p.data){
+                    var ref = find(ic, p.data);
+                    if(ref.p) p.value = ref.p.value;
+                }
                 
             if(g.type === 'NAND')
-                g.outputs[0].value = (g.inputs[0].value===1 && g.inputs[1].value===1) ? 0 : 1;
+                g.pins[2].value = (g.pins[0].value===1 && g.pins[1].value===1) ? 0 : 1;
             if(g.type === 'IC')
                 _.calc(g);
         }
 
-        for(let o of ic.outputs){
-            var ref = find(ic, o.data);
-            if(ref) o.value = ref.value;
-        }
+        for(let p of ic.pins)
+            if(p.data){
+                var ref = find(ic, p.data);
+                if(ref.p) p.value = ref.p.value;
+            }
 
         _.calculating = false;
     }
 
     function find(ic, ref){
-        if(!ref) return null;
+        if(!ref) return {gate:null, pin:null};
 
-        let inp = ic.inputs.find(i=>i.id==ref);
-        if(inp) return inp;
+        let pin = ic.pins.find(i=>i.id==ref);
+        if(pin) return {g:null, p:pin};
 
         try{
             let gate = ic.gates.find(g=>g.id == ref.split('.')[0]);
-            return gate.outputs.find(o=>o.id==ref.split('.')[1]);
+            return {g:gate, p:gate.pins.find(o=>o.id==ref.split('.')[1])};
         }catch{
-            return null;
+            return {g:null, p:null};
         }
     }
 
     $interval(()=>{if(!_.calculating) _.calc(_.ic);}, 50);
 
     $interval(()=>{
-        _.ic.gates.filter(g=>g.type=='CLOCK').forEach(c=>c.outputs[0].value = c.outputs[0].value?0:1);
+        _.ic.gates.filter(g=>g.type=='CLOCK').forEach(c=>c.pins[0].value = c.pins[0].value?0:1);
     }, 500);
 
     _.newIC = ()=>{
         _.ic = {
             name:'NONAME',
             type:'IC',
-            inputs:[],
-            outputs:[],
+            pins:[],
             gates: []
         }
+        _.refreshView();
     }
 
     _.newIC();
@@ -177,26 +180,17 @@ app.controller('MainController', function ($scope, $interval) {
 
         let added = null;
 
-        if(type=='INPUT'){
+        if(type=='PIN'){
             added = {
-                id:'input'+_.ic.inputs.length,
-                name:'INPUT'+_.ic.inputs.length,
-                pos:{left:0, top:.3}
+                id:'pin'+nextId(_.ic),
+                name:'PIN'+_.ic.pins.length
             };
-            _.ic.inputs.push(added);
-        }
-        else if(type=='OUTPUT'){
-            added = {
-                id:'output'+_.ic.outputs.length,
-                name:'OUTPUT'+_.ic.outputs.length,
-                pos:{left:1, top:.3}
-            };
-            _.ic.outputs.push(added);
+            _.ic.pins.push(added);
         }
         else {
             let gatePrototype = _.gatePrototypes.find(gp=>gp[0]==type)[1];
             added = JSON.parse(JSON.stringify(gatePrototype));
-            added.id = 'g'+_.ic.gates.length;
+            added.id = 'g'+nextId(_.ic);
             addSubGates(added);
             _.ic.gates.push(added);
         }
@@ -212,6 +206,11 @@ app.controller('MainController', function ($scope, $interval) {
         
     }
 
+    function nextId(g){
+        if(!g.gates) return g.pins.length;
+        return g.pins.length + g.gates.reduce((sum,sg)=>sum+nextId(sg),0);
+    }
+
     _.align = (dir) => {
         const alignTo = (dir2, f) => {
             const min = f(..._.selecteds.map(s=>s.pos[dir2]));
@@ -220,7 +219,7 @@ app.controller('MainController', function ($scope, $interval) {
             else
                 _.selecteds.forEach(e=>e.pos[dir2] = min);
         }
-        
+
         if(dir=='left') alignTo('left', Math.min);
         if(dir=='right') alignTo('left', Math.max);
         if(dir=='top') alignTo('top', Math.min);
@@ -244,12 +243,9 @@ app.controller('MainController', function ($scope, $interval) {
             let gatePrototype = _.gatePrototypes.find(gp=>gp[0]==sg.name)[1];
             let newGate = JSON.parse(JSON.stringify(gatePrototype));
             sg.gates = newGate.gates;
-            sg.inputs = newGate.inputs;
-            sg.outputs = newGate.outputs;
-            sg.inputs.forEach(x=>x.data = sg.inputsData.find(i=>i.id==x.id).data);
-            sg.outputs.forEach(x=>x.data = sg.outputsData.find(i=>i.id==x.id).data);
-            sg.inputsData = undefined;
-            sg.outputsData = undefined;
+            sg.pins = newGate.pins;
+            sg.pins.forEach(x=>x.data = sg.pinsData.find(i=>i.id==x.id).data);
+            sg.pinsData = undefined;
             addSubGates(sg);
         }
     }
@@ -257,7 +253,7 @@ app.controller('MainController', function ($scope, $interval) {
     _.save = ()=>{
         let name = prompt('Enter a name for the IC');
         _.ic.name = name.toUpperCase();
-        let pins = _.ic.inputs.concat(_.ic.outputs).concat(_.ic.gates.filter(g=>g.type=='LED')).map(p=>p.pos);
+        let pins = _.ic.pins.concat(_.ic.gates.filter(g=>g.type=='LED')).map(p=>p.pos);
         let horizontalPinCount = 0; let verticalPinCount = 0;
         for(let i=0; i<1; i+=.05){
             horizontalPinCount += pins.find(p=>p.left>=i && p.left<i+.1) ? 1 : 0;
@@ -269,10 +265,8 @@ app.controller('MainController', function ($scope, $interval) {
         if(_.ic.gates && _.ic.gates.length)
             for(let i=0; i<_.ic.gates.length; i++){
                 _.ic.gates[i].gates = undefined;
-                _.ic.gates[i].inputsData = _.ic.gates[i].inputs.map(x=>({id:x.id, data:x.data}));
-                _.ic.gates[i].outputsData = _.ic.gates[i].outputs.map(x=>({id:x.id, data:x.data}));
-                _.ic.gates[i].inputs = undefined;
-                _.ic.gates[i].outputs = undefined;
+                _.ic.gates[i].pinsData = _.ic.gates[i].pins.map(x=>({id:x.id, data:x.data}));
+                _.ic.gates[i].pins = undefined;
             }
 
         _.gatePrototypes.push([_.ic.name, JSON.parse(JSON.stringify(_.ic, (k,v)=>(k==="$$hashKey"||k==="connections")?undefined:v))]);
@@ -284,8 +278,7 @@ app.controller('MainController', function ($scope, $interval) {
         if(!_.selecteds.length) return;
 
         _.selecteds.filter(s=>_.isGate(s)).forEach(s=>_.ic.gates.splice(_.ic.gates.indexOf(s),1));
-        _.selecteds.filter(s=>_.isInput(s)).forEach(s=>_.ic.inputs.splice(_.ic.inputs.indexOf(s),1));
-        _.selecteds.filter(s=>_.isOutput(s)).forEach(s=>_.ic.outputs.splice(_.ic.outputs.indexOf(s),1));
+        _.selecteds.filter(s=>_.isPin(s)).forEach(s=>_.ic.pins.splice(_.ic.pins.indexOf(s),1));
 
         _.selecteds = [];
         _.refreshView();
@@ -308,9 +301,7 @@ app.controller('MainController', function ($scope, $interval) {
         _.selecteds = [];
     }
 
-    _.isPin = obj => _.isInput(obj) || _.isOutput(obj);
-    _.isInput = obj => obj && obj.id.startsWith('input');
-    _.isOutput = obj => obj && obj.id.startsWith('output');
+    _.isPin = obj => obj && obj.id.startsWith('pin');
     _.isGate = obj => obj && obj.type;
 
     setGates();
