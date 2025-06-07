@@ -14,16 +14,28 @@ app.controller('MainController', function ($scope, $interval) {
         // connect pins
         if(ev.altKey){
             if(_.selecteds.length && obj && _.selecteds[0]!=obj && _.isPin(_.selecteds[0]) && _.isPin(obj)){
-                let g = _.ic.gates.find(g=>g.pins.indexOf(_.selecteds[0])>-1);
-                obj.data = g ? g.id+'.'+_.selecteds[0].id : _.selecteds[0].id;
+                const pinSrc = _.selecteds[0]
+                const pinDst = obj
+                const gateSrc = _.ic.gates.find(g=>g.pins.indexOf(pinSrc)>-1);
+                const gateDst = _.ic.gates.find(g=>g.pins.indexOf(pinDst)>-1);
 
-                if(_.selecteds.length>1)
+                if(gateSrc == null && gateDst != null && pinDst.type=='PIN_OUT'){
+                    alert("A standalone pin cannot be connected to the output of an IC")
+                    return;
+                }
+
+                pinDst.data = gateSrc ? gateSrc.id+'.'+pinSrc.id : pinSrc.id;
+
+                if(_.selecteds.length > 1)
                     _.selecteds.splice(_.selecteds[0],1)[0];
 
                 _.refreshView();
             }
             return;
         }
+
+        if(_.isPin(obj) && _.ic.pins.indexOf(obj) < 0 && obj.type == 'PIN_IN')
+            obj = _.ic.gates.find(g=>g.pins.indexOf(obj)>-1)
 
         // select multiple
         if(ev.ctrlKey){
@@ -141,14 +153,20 @@ app.controller('MainController', function ($scope, $interval) {
     }
 
     function find(ic, ref){
-        if(!ref) return {gate:null, pin:null};
+        if(!ref) return {g:null, p:null};
 
+        // For IC level pins
         let pin = ic.pins.find(i=>i.id==ref);
         if(pin) return {g:null, p:pin};
 
         try{
-            let gate = ic.gates.find(g=>g.id == ref.split('.')[0]);
-            return {g:gate, p:gate.pins.find(o=>o.id==ref.split('.')[1])};
+            // For pins inside gates
+            const [gateId, pinId] = ref.split('.');
+            let gate = ic.gates.find(g=>g.id == gateId);
+            if(!gate) return {g:null, p:null};
+            
+            let pin = gate.pins.find(p => p.id == pinId);
+            return {g:gate, p:pin};
         }catch{
             return {g:null, p:null};
         }
@@ -175,14 +193,17 @@ app.controller('MainController', function ($scope, $interval) {
     _.lastSelecteds = [];
 
     _.add = type =>{
-        if(_.lastSelecteds.some((s,i) =>_.selecteds[i]!=s))
+        if(_.lastSelecteds.some((s, i) =>_.selecteds[i] != s))
             _.selecteds = [];
 
         let added = null;
 
-        if(type=='PIN'){
+        if(type == 'PIN_IN' || type == 'PIN_OUT'){
+            // Use a more unique ID format
+            const uniqueId = 'pin_' + Date.now() + '_' + _.ic.pins.length;
             added = {
-                id:'pin'+nextId(_.ic),
+                id: uniqueId,
+                type: type,
                 name:'PIN'+_.ic.pins.length
             };
             _.ic.pins.push(added);
@@ -206,9 +227,10 @@ app.controller('MainController', function ($scope, $interval) {
         
     }
 
+    _.idSeq = 1;
+
     function nextId(g){
-        if(!g.gates) return g.pins.length;
-        return g.pins.length + g.gates.reduce((sum,sg)=>sum+nextId(sg),0);
+        return _.idSeq++;
     }
 
     _.align = (dir) => {
@@ -251,7 +273,12 @@ app.controller('MainController', function ($scope, $interval) {
     }
 
     _.save = ()=>{
-        let name = prompt('Enter a name for the IC');
+        if(!_.ic.pins.find(p=>p.type=='PIN_OUT')){
+            alert("Add at least one output pin");
+            return;
+        }
+
+        let name = prompt('Enter a name for the IC') || 'NONAME';
         _.ic.name = name.toUpperCase();
         let pins = _.ic.pins.concat(_.ic.gates.filter(g=>g.type=='LED')).map(p=>p.pos);
         let horizontalPinCount = 0; let verticalPinCount = 0;

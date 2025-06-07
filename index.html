@@ -30,7 +30,8 @@
             <button ng-disabled="!selecteds.length" ng-click="gather()">GATHER</button>            
             <hr>
             ADD
-            <button ng-click="add('PIN')">PIN</button>
+            <button ng-click="add('PIN_IN')">PIN IN</button>
+            <button ng-click="add('PIN_OUT')">PIN OUT</button>
             <button ng-click="add(gp[0])" ng-repeat="gp in gatePrototypes">{{gp[0]}}</button>
         </div>
         <div class="content">
@@ -90,7 +91,7 @@
 
             </svg>
             <pre style="display: inline-flex;vertical-align: top;">
-                {{selecteds[0] | json}}
+{{(selecteds[0] || ic) | json}}
             </pre>
         </div>
     </div>

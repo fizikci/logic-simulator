@@ -1,4 +1,4 @@
-function setGates(){
+function setGates() {
 
     _.gatePrototypes = [
         [
@@ -11,7 +11,7 @@ function setGates(){
                 "H": 30,
                 "pins": [
                     {
-                        "id": "pin1",
+                        "id": "pin_1",
                         "name": "PIN",
                         "pos": {
                             "left": 1,
@@ -31,7 +31,7 @@ function setGates(){
                 "H": 25,
                 "pins": [
                     {
-                        "id": "pin1",
+                        "id": "pin_2",
                         "name": "PIN1",
                         "pos": {
                             "left": 0.5,
@@ -51,7 +51,8 @@ function setGates(){
                 "H": 70,
                 "pins": [
                     {
-                        "id": "pin1",
+                        "id": "pin_3",
+                        "type": "PIN_IN",
                         "name": "PIN1",
                         "pos": {
                             "left": 0,
@@ -59,7 +60,8 @@ function setGates(){
                         }
                     },
                     {
-                        "id": "pin2",
+                        "id": "pin_4",
+                        "type": "PIN_IN",
                         "name": "PIN2",
                         "pos": {
                             "left": 0,
@@ -67,7 +69,8 @@ function setGates(){
                         }
                     },
                     {
-                        "id": "pin3",
+                        "id": "pin_5",
+                        "type": "PIN_OUT",
                         "name": "PIN3",
                         "pos": {
                             "left": 1,
@@ -79,15 +82,12 @@ function setGates(){
         ]
     ];
 
-    //addOtherGates();
+    addOtherGates();
 }
 
 
-function addOtherGates(){
+function addOtherGates() {
     _.gatePrototypes = _.gatePrototypes.concat(
-        [
-            
-        ]
-
+        []
     );
 }
