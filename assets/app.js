@@ -38,7 +38,7 @@ app.controller('MainController', function ($scope, $interval) {
             obj = _.ic.gates.find(g=>g.pins.indexOf(obj)>-1)
 
         // select multiple
-        if(ev.ctrlKey){
+        if(ev.ctrlKey || ev.metaKey){
             _.selecteds.push(obj);
             return;
         }
@@ -139,6 +139,19 @@ app.controller('MainController', function ($scope, $interval) {
                 
             if(g.type === 'NAND')
                 g.pins[2].value = (g.pins[0].value===1 && g.pins[1].value===1) ? 0 : 1;
+            if(g.type === 'AND')
+                g.pins[2].value = (g.pins[0].value===1 && g.pins[1].value===1) ? 1 : 0;
+            if(g.type === 'NOR')
+                g.pins[2].value = (g.pins[0].value===1 || g.pins[1].value===1) ? 0 : 1;
+            if(g.type === 'OR')
+                g.pins[2].value = (g.pins[0].value===1 || g.pins[1].value===1) ? 1 : 0;
+            if(g.type === 'XOR')
+                g.pins[2].value = (g.pins[0].value===1 && g.pins[1].value===1) ? 0 : (g.pins[0].value===1 || g.pins[1].value===1) ? 1 : 0;
+            if(g.type === 'NOT')
+                g.pins[1].value = (g.pins[0].value===1) ? 0 : 1;
+            if(g.type === 'BUFFER')
+                g.pins[1].value = g.pins[0].value;
+
             if(g.type === 'IC')
                 _.calc(g);
         }

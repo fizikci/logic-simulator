@@ -11,25 +11,20 @@
 <body ng-controller="MainController">
     <div class="header">
         <h1>Logic Simulator</h1>
+        <button ng-click="newIC()">NEW</button>
+        <button ng-disabled="viewStack.length" ng-click="save()">SAVE</button>
+        <button ng-disabled="!selecteds.length" ng-click="delete()">DELETE</button>
+        <button ng-disabled="selecteds.length!=1 || selecteds[0].type != 'IC'" ng-click="display()">SCOPE</button>
+        <button ng-disabled="viewStack.length==0" ng-click="back()">GO BACK</button>
+        <button ng-disabled="!selecteds.length" ng-click="align('top')">ALIGN TOP</button>
+        <button ng-disabled="!selecteds.length" ng-click="align('right')">ALIGN RIGHT</button>
+        <button ng-disabled="!selecteds.length" ng-click="align('bottom')">ALIGN BOTTOM</button>
+        <button ng-disabled="!selecteds.length" ng-click="align('left')">ALIGN LEFT</button>
+        <button ng-disabled="!selecteds.length" ng-click="spread()">SPREAD</button>
+        <button ng-disabled="!selecteds.length" ng-click="gather()">GATHER</button>
     </div>
     <div class="page">
         <div class="left">
-            FILE
-            <button ng-click="newIC()">NEW</button>
-            <button ng-disabled="viewStack.length" ng-click="save()">SAVE</button>
-            <hr>
-            SELECTED
-            <button ng-disabled="!selecteds.length" ng-click="delete()">DELETE</button>
-            <button ng-disabled="selecteds.length!=1 || selecteds[0].type != 'IC'" ng-click="display()">SCOPE</button>
-            <button ng-disabled="viewStack.length==0" ng-click="back()">GO BACK</button>
-            <button ng-disabled="!selecteds.length" ng-click="align('top')">ALIGN TOP</button>
-            <button ng-disabled="!selecteds.length" ng-click="align('right')">ALIGN RIGHT</button>
-            <button ng-disabled="!selecteds.length" ng-click="align('bottom')">ALIGN BOTTOM</button>
-            <button ng-disabled="!selecteds.length" ng-click="align('left')">ALIGN LEFT</button>
-            <button ng-disabled="!selecteds.length" ng-click="spread()">SPREAD</button>
-            <button ng-disabled="!selecteds.length" ng-click="gather()">GATHER</button>            
-            <hr>
-            ADD
             <button ng-click="add('PIN_IN')">PIN IN</button>
             <button ng-click="add('PIN_OUT')">PIN OUT</button>
             <button ng-click="add(gp[0])" ng-repeat="gp in gatePrototypes">{{gp[0]}}</button>
@@ -90,7 +85,7 @@
                     fill="none" stroke-width="1" stroke="gray" stroke-dasharray="5,5"/>
 
             </svg>
-            <pre style="display: inline-flex;vertical-align: top;">
+            <pre style="display: inline-flex;vertical-align: top;height:{{CH}}px;overflow-y: auto;">
 {{(selecteds[0] || ic) | json}}
             </pre>
         </div>

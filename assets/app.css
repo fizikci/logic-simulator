@@ -27,6 +27,9 @@ body {
 button {
     font-family: monospace;
     font-size:small;
-    display: block;
     margin: 12px;
+}
+
+.left button {
+    display:block
 }
