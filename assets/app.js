@@ -26,16 +26,17 @@ app.controller('MainController', function ($scope, $interval) {
 
                 pinDst.data = gateSrc ? gateSrc.id+'.'+pinSrc.id : pinSrc.id;
 
-                if(_.selecteds.length > 1)
-                    _.selecteds.splice(_.selecteds[0],1)[0];
+                _.selecteds = [pinDst];
 
                 _.refreshView();
             }
             return;
         }
 
-        if(_.isPin(obj) && _.ic.pins.indexOf(obj) < 0 && obj.type == 'PIN_IN')
+        if(_.isPin(obj) && _.ic.pins.indexOf(obj) < 0 && obj.type == 'PIN_IN'){
+            if(!obj.data) obj.value = obj.value ? 0 : 1; // toggle value
             obj = _.ic.gates.find(g=>g.pins.indexOf(obj)>-1)
+        }
 
         // select multiple
         if(ev.ctrlKey || ev.metaKey){
@@ -97,6 +98,11 @@ app.controller('MainController', function ($scope, $interval) {
         _.dragging = false;
     }
 
+    _.togglePin = (pin, ev) => {
+        if(ev.altKey || pin.data) return;
+        pin.value = pin.value ? 0 : 1;
+    }
+
     _.connections = [];
 
     _.refreshView = () => {
@@ -136,21 +142,9 @@ app.controller('MainController', function ($scope, $interval) {
                     var ref = find(ic, p.data);
                     if(ref.p) p.value = ref.p.value;
                 }
-                
-            if(g.type === 'NAND')
-                g.pins[2].value = (g.pins[0].value===1 && g.pins[1].value===1) ? 0 : 1;
-            if(g.type === 'AND')
-                g.pins[2].value = (g.pins[0].value===1 && g.pins[1].value===1) ? 1 : 0;
-            if(g.type === 'NOR')
-                g.pins[2].value = (g.pins[0].value===1 || g.pins[1].value===1) ? 0 : 1;
-            if(g.type === 'OR')
-                g.pins[2].value = (g.pins[0].value===1 || g.pins[1].value===1) ? 1 : 0;
-            if(g.type === 'XOR')
-                g.pins[2].value = (g.pins[0].value===1 && g.pins[1].value===1) ? 0 : (g.pins[0].value===1 || g.pins[1].value===1) ? 1 : 0;
-            if(g.type === 'NOT')
-                g.pins[1].value = (g.pins[0].value===1) ? 0 : 1;
-            if(g.type === 'BUFFER')
-                g.pins[1].value = g.pins[0].value;
+
+            if(g.calc!== undefined)
+                g.calc();
 
             if(g.type === 'IC')
                 _.calc(g);
@@ -225,6 +219,7 @@ app.controller('MainController', function ($scope, $interval) {
             let gatePrototype = _.gatePrototypes.find(gp=>gp[0]==type)[1];
             added = JSON.parse(JSON.stringify(gatePrototype));
             added.id = 'g'+nextId(_.ic);
+            added.calc = gatePrototype.calc;
             addSubGates(added);
             _.ic.gates.push(added);
         }
@@ -279,6 +274,7 @@ app.controller('MainController', function ($scope, $interval) {
             let newGate = JSON.parse(JSON.stringify(gatePrototype));
             sg.gates = newGate.gates;
             sg.pins = newGate.pins;
+            sg.calc = gatePrototype.calc;
             sg.pins.forEach(x=>x.data = sg.pinsData.find(i=>i.id==x.id).data);
             sg.pinsData = undefined;
             addSubGates(sg);

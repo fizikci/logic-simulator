@@ -33,3 +33,7 @@ button {
 .left button {
     display:block
 }
+
+svg {
+    background-color: cornsilk;
+}
